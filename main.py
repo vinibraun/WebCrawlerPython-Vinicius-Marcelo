@@ -52,9 +52,9 @@
 # for tag in tags:
 #     print(tag)
 
-import requests
-from bs4 import BeautifulSoup
-import lxml
+# import requests
+# from bs4 import BeautifulSoup
+# import lxml
 
 # html = requests.get('https://www.tibiawiki.com.br/wiki/Itens').text
 # soup = BeautifulSoup(html, 'lxml')
@@ -65,10 +65,21 @@ import lxml
 #     print(f'https://www.tibiawiki.com.br/{link}')
 
 
+
 import logging
 from urllib.parse import urljoin
 import requests
 from bs4 import BeautifulSoup
+from xlwt import *
+
+excel = Workbook(encoding = 'utf-8')
+
+table = excel.add_sheet('data')
+table.write(0, 0, 'filme_url')
+table.write(0, 1, 'filme_nome')
+table.write(0, 2, 'filme_info')
+
+
 
 logging.basicConfig(
     format='%(asctime)s %(levelname)s:%(message)s',
@@ -79,13 +90,16 @@ class Crawler:
     def __init__(self, urls=[]):
         self.visited_urls = []
         self.urls_to_visit = urls
+        self.nome_filme = []
+        self.info_filme = []
+        self.linha = 1
 
     def download_url(self, url):
         return requests.get(url).text
 
     def get_linked_urls(self, url, html):
         soup = BeautifulSoup(html, 'html.parser')
-        for link in soup.find_all('a'):
+        for link in soup.find('table', {'class': 'chart'}).find_all('a'):
             path = link.get('href')
             if path and path.startswith('/'):
                 path = urljoin(url, path)
@@ -104,12 +118,27 @@ class Crawler:
         while self.urls_to_visit:
             url = self.urls_to_visit.pop(0)
             logging.info(f'Crawling: {url}')
+
             try:
                 self.crawl(url)
             except Exception:
                 logging.exception(f'Failed to crawl: {url}')
             finally:
                 self.visited_urls.append(url)
+                self.crawl_filme(url)
+                self.linha += 1
+                if self.linha > 30:
+                    break
+
+    def crawl_filme(self, url):
+        html = self.download_url(url)
+        soup = BeautifulSoup(html, 'html.parser')
+        nome_filme = soup.find_all("titleColumn")
+        print(nome_filme)
+        table.write(self.linha, 0, url)
+        table.write(self.linha, 1, nome_filme)
+
 
 if __name__ == '__main__':
-    Crawler(urls=['https://www.imdb.com/']).run()
+    Crawler(urls=['https://www.imdb.com/chart/top/?ref_=nv_mv_250']).run()
+    excel.save('web_crawler_vinicius_marcelo.xls')
